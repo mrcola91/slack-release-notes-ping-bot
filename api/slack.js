@@ -1,3 +1,4 @@
-export default async function handler() {
+export default async function handler(_, res) {
     console.log("did this shit work?");
+    res.status(200)
 }
