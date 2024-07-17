@@ -25,7 +25,7 @@ async function getReleaseNotes(owner, repo, releaseTag) {
 
 export default async function handler(req, res) {
   if (req.method === 'POST' && req.body.challenge) {
-    res.status(200).send(req.body.challenge);
+    res.status(200).json({ challenge: req.body.challenge });
   } else if (req.method === 'POST') {
     const { channel, thread_ts, owner, repo, releaseTag } = req.body;
 
