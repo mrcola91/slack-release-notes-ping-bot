@@ -1,49 +1,93 @@
-import { WebClient } from '@slack/web-api';
-import { Octokit } from '@octokit/rest';
+const { WebClient } = require('@slack/web-api');
+const { App } = require('@slack/bolt');
+const { Octokit } = require('@octokit/rest');
+const fetch = require('node-fetch');
+const githubToSlackMap = require('./github_to_slack_map');
 
 // Slack and GitHub tokens
-const slackToken = process.env.SLACK_TOKEN;
+const slackToken = process.env.SLACK_BOT_TOKEN;
 const githubToken = process.env.GITHUB_TOKEN;
-
-// Initialize Slack and GitHub clients
 const slackClient = new WebClient(slackToken);
 const octokit = new Octokit({ auth: githubToken });
 
-async function getReleaseNotes(owner, repo, releaseTag) {
+const app = new App({
+  token: slackToken,
+  signingSecret: process.env.SLACK_SIGNING_SECRET,
+});
+
+// Event listener for reactions
+app.event('reaction_added', async ({ event, context }) => {
   try {
-    const { data } = await octokit.rest.repos.getReleaseByTag({
-      owner,
-      repo,
-      tag: releaseTag
-    });
-    return data.body;
+    const { item, reaction, user } = event;
+    const channel = item.channel;
+    const messageTs = item.ts;
+    const emoji = reaction;
+
+    // Define the emoji and text to look for
+    const targetEmoji = 'deploybutton';
+    const targetText = 'by @';
+
+    if (emoji === targetEmoji) {
+      const result = await slackClient.conversations.history({
+        channel,
+        latest: messageTs,
+        limit: 1,
+        inclusive: true
+      });
+
+      const message = result.messages[0].text;
+
+      if (message.includes(targetText)) {
+        const githubHandle = message.split(targetText)[1].trim().split(' ')[0];
+
+        // Find the Slack user ID by GitHub handle
+        const slackUserId = await findSlackUserByGitHubHandle(githubHandle);
+
+        if (slackUserId) {
+          // Send a notification to the Slack user
+          await slackClient.chat.postMessage({
+            channel,
+            text: `<@${slackUserId}> Your GitHub handle ${githubHandle} was mentioned!`,
+            thread_ts: messageTs
+          });
+        } else {
+          console.error('Slack user not found for GitHub handle:', githubHandle);
+        }
+      }
+    }
   } catch (error) {
-    console.error('Error fetching release notes:', error);
+    console.error('Error handling reaction:', error);
+  }
+});
+
+async function findSlackUserByGitHubHandle(githubHandle) {
+  try {
+    // Your GitHub to Slack mapping logic here
+    const users = await slackClient.users.list();
+    const githubRealName = await getUserRealName(githubHandle);
+    const user = users.members.find(u => u.profile.real_name === githubRealName);
+    return user ? user.id : null;
+  } catch (error) {
+    console.error('Error finding Slack user:', error);
     return null;
   }
 }
 
-export default async function handler(req, res) {
-  if (req.method === 'POST' && req.body.challenge) {
-    res.status(200).json({ challenge: req.body.challenge });
-  } else if (req.method === 'POST') {
-    const { channel, thread_ts, owner, repo, releaseTag } = req.body;
-
-    const releaseNotes = await getReleaseNotes(owner, repo, releaseTag);
-    const messageText = releaseNotes ? `Here are the release notes:\n${releaseNotes}` : 'Failed to retrieve release notes.';
-
-    try {
-      await slackClient.chat.postMessage({
-        channel,
-        text: messageText,
-        thread_ts
-      });
-      res.status(200).send('Message posted');
-    } catch (error) {
-      console.error('Error posting to Slack:', error);
-      res.status(500).send('Error posting message');
-    }
-  } else {
-    res.status(405).send('Method Not Allowed');
+async function getUserRealName(githubUsername) {
+  try {
+    const response = await octokit.users.getByUsername({
+      username: githubUsername
+    });
+    const realName = response.data.name; // Real name of the GitHub user
+    return realName;
+  } catch (error) {
+    console.error('Error fetching user information:', error);
+    return null;
   }
 }
+
+// Start the app
+(async () => {
+  await app.start(process.env.PORT || 3000);
+  console.log('Slack bot is running');
+})();
