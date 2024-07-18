@@ -2,7 +2,6 @@ const { WebClient } = require('@slack/web-api');
 const { App } = require('@slack/bolt');
 const { Octokit } = require('@octokit/rest');
 const fetch = require('node-fetch');
-const githubToSlackMap = require('./github_to_slack_map');
 
 // Slack and GitHub tokens
 const slackToken = process.env.SLACK_BOT_TOKEN;
