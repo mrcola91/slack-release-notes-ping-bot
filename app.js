@@ -54,7 +54,7 @@ app.event('reaction_added', async ({ event, context }) => {
           console.error('Slack user not found for GitHub handle:', githubHandle);
         }
       } else {
-        console.error('GitHub handle not found in the message');
+        console.error('emoji used:', emoji);
       }
     }
   } catch (error) {
