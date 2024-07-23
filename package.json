@@ -1,6 +1,9 @@
 {
   "name": "release-notes-slack-handle-formatter",
   "version": "1.0.0",
+  "scripts": {
+    "start": "node app.js"
+  },
   "dependencies": {
     "@octokit/rest": "^19.0.0",
     "@slack/bolt": "^3.19.0",
