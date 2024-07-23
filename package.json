@@ -1,6 +1,7 @@
 {
   "name": "release-notes-slack-handle-formatter",
   "version": "1.0.0",
+  "main": "app.js",
   "scripts": {
     "start": "node app.js"
   },
